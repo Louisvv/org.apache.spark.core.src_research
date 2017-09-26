@@ -31,21 +31,30 @@ import org.apache.spark.util.Utils
 
 /**
  * Configuration for a Spark application. Used to set various Spark parameters as key-value pairs.
+  *   用于Spark应用程序的配置。用于将不同的Spark参数设置为键-值对。
  *
  * Most of the time, you would create a SparkConf object with `new SparkConf()`, which will load
  * values from any `spark.*` Java system properties set in your application as well. In this case,
  * parameters you set directly on the `SparkConf` object take priority over system properties.
- *
+ *    大多数情况下，使用 new SparkConf()来创建一个SparkConf对象，这将会加载全部匹配spark.* 的值，Java系统属性也会在其中。
+  *   在这种情况下，在SparkConf上直接配置的参数优先于系统配置属性。
+  *
  * For unit tests, you can also call `new SparkConf(false)` to skip loading external settings and
  * get the same configuration no matter what the system properties are.
- *
+ *    对于单元测试，可以调用SparkConf(false)跳过加载外部设置，得到相同的配置。
+  *
  * All setter methods in this class support chaining. For example, you can write
  * `new SparkConf().setMaster("local").setAppName("My app")`.
+  *   这个类中所有的方法都支持连接设置
+  *   比如  new SparkConf().setMaster("local").setAppName("My app")
  *
  * @param loadDefaults whether to also load values from Java system properties
+  *                     参数：是否也从Java系统中加载值
  *
  * @note Once a SparkConf object is passed to Spark, it is cloned and can no longer be modified
  * by the user. Spark does not support modifying the configuration at runtime.
+  *       注意：一旦SparkConf对象提交到Spark，就会被克隆，并且不会被任何用户修改
+  *       Spark不支持在运行时修改配置
  */
 class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging with Serializable {
 

@@ -62,13 +62,19 @@ import org.apache.spark.util._
 
 /**
  * Main entry point for Spark functionality. A SparkContext represents the connection to a Spark
- * cluster, and can be used to create RDDs, accumulators and broadcast variables on that cluster.
+ * cluster, and can be used to create RDDs, accumulators and broadcast variables on that cluster.*
+  *   Spark功能的主要入口。
+  *   一个SparkContext 表示着与Spark集群相连，并用来可以在集群上创建RDD,累加器和广播变量。
  *
  * Only one SparkContext may be active per JVM.  You must `stop()` the active SparkContext before
  * creating a new one.  This limitation may eventually be removed; see SPARK-2243 for more details.
- *
+ *   每个JVM只能有一个激活的SparkConttext。在创建一个新的SparkContext，你必须先将激活的SparkContext停止
+ *    这种限制最终可能会被消除;更多细节请参见spark-2243。
+  *
  * @param config a Spark Config object describing the application configuration. Any settings in
  *   this config overrides the default configs as well as system properties.
+  *   参数：config  一个Spark Config对象，用来描述应用程序的配置。
+  *   这个配置覆盖了默认的配置和系统属性
  */
 class SparkContext(config: SparkConf) extends Logging {
 

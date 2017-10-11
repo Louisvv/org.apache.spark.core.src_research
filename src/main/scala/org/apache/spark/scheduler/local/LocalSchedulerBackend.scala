@@ -43,6 +43,11 @@ private case class StopExecutor()
  * RpcEndpoint makes the calls on [[LocalSchedulerBackend]] asynchronous, which is necessary
  * to prevent deadlock between [[LocalSchedulerBackend]] and the [[TaskSchedulerImpl]].
  */
+/*
+    对LocalSchedulerBackend的调用都是通过LocalEndpoint序列化的
+    使用RpcEndpoint可以在LocalSchedulerBackend后台异步调用
+    这对于防止LocalSchedulerBackend和TaskSchedulerImpl之间的死锁是很有必要的
+ */
 private[spark] class LocalEndpoint(
     override val rpcEnv: RpcEnv,
     userClassPath: Seq[URL],
@@ -94,6 +99,10 @@ private[spark] class LocalEndpoint(
  * Used when running a local version of Spark where the executor, backend, and master all run in
  * the same JVM. It sits behind a [[TaskSchedulerImpl]] and handles launching tasks on a single
  * Executor (created by the [[LocalSchedulerBackend]]) running locally.
+ */
+/*
+    运行本地版本的Spark时，executor、后端和主程序都在同一个JVM中运行。
+    它位于TaskSchedulerImpl的后面，并在单个Executor上处理启动任务(由本地调度程序后台运行的本地调度程序创建。
  */
 private[spark] class LocalSchedulerBackend(
     conf: SparkConf,

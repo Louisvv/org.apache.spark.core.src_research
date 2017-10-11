@@ -40,6 +40,7 @@ import org.apache.spark.util.Utils
  * In general this class should be instantiated by the SparkEnv and most components
  * should access it from that. There are some cases where the SparkEnv hasn't been
  * initialized yet and this class must be instantiated directly.
+  * 一般来说，这个类应该由SparkEnv和大多数组件实例化从这里获取信息。
  *
  * Spark currently supports authentication via a shared secret.
  * Authentication can be configured to be on via the 'spark.authenticate' configuration
@@ -237,6 +238,10 @@ private[spark] class SecurityManager(
   // Set our own authenticator to properly negotiate user/password for HTTP connections.
   // This is needed by the HTTP client fetching from the HttpServer. Put here so its
   // only set once.
+  /*
+  设置自己的身份验证器，用来正确的验证HTTP连接的用户名和密码
+  这是HTTP客户端从HttpServer获取的，这里只能设置一次。
+   */
   if (authOn) {
     Authenticator.setDefault(
       new Authenticator() {

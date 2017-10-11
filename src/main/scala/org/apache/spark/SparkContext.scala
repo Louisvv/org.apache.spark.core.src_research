@@ -79,16 +79,29 @@ import org.apache.spark.util._
 class SparkContext(config: SparkConf) extends Logging {
 
   // The call site where this SparkContext was constructed.
+  //  调用地点，在这里构造了这个SparkContext
   private val creationSite: CallSite = Utils.getCallSite()
+  /*
+  CallSite存储了线程栈中最靠近栈顶的用户类及最靠近栈底的Scala或者Spark核心类信息。
+   */
 
   // If true, log warnings instead of throwing exceptions when multiple SparkContexts are active
-  private val allowMultipleContexts: Boolean =
+  // 如果设置为true，在多个SparkContext激活时，记录警告，而不是抛出异常
+  /*
+  SparkContext默认只有一个实例，由spark.driver.allowMultipleContexts来控制，默认为false，#如果用户需要多个SparkContext实例时，可修改为true
+   */
+  private val allowMultipleContexts:  Boolean =
     config.getBoolean("spark.driver.allowMultipleContexts", false)
 
   // In order to prevent multiple SparkContexts from being active at the same time, mark this
   // context as having started construction.
+  // 为了防止多个SparkContext同时处于激活状态，将这个SparkContext标记为已构建
   // NOTE: this must be placed at the beginning of the SparkContext constructor.
+  // 注意：这个必须放在SparkContext构造器的开始处
   SparkContext.markPartiallyConstructed(this, allowMultipleContexts)
+  /*
+  markPartiallyConstructed方法来确保实例的唯一性，将当前的SparkContext标记为以构建。
+   */
 
   val startTime = System.currentTimeMillis()
 
@@ -225,6 +238,7 @@ class SparkContext(config: SparkConf) extends Logging {
   /* ------------------------------------------------------------------------------------- *
    | Accessors and public fields. These provide access to the internal state of the        |
    | context.                                                                              |
+   | 访问器和控制区域，这里提供了对context内部状态的访问                                                                                       |
    * ------------------------------------------------------------------------------------- */
 
   private[spark] def conf: SparkConf = _conf
@@ -232,6 +246,7 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
    * Return a copy of this SparkContext's configuration. The configuration ''cannot'' be
    * changed at runtime.
+    * 返回这个SparkContext配置的复制，配置不能在执行时更改！
    */
   def getConf: SparkConf = conf.clone()
 
@@ -257,10 +272,10 @@ class SparkContext(config: SparkConf) extends Logging {
 
   // This function allows components created by SparkEnv to be mocked in unit tests:
   private[spark] def createSparkEnv(
-      conf: SparkConf,
-      isLocal: Boolean,
+      conf: SparkConf,   //conf是对SparkConf的复制
+      isLocal: Boolean,   //isLocal标识判断是否单机
       listenerBus: LiveListenerBus): SparkEnv = {
-    SparkEnv.createDriverEnv(conf, isLocal, listenerBus, SparkContext.numDriverCores(master))
+    SparkEnv.createDriverEnv(conf, isLocal, listenerBus, SparkContext.numDriverCores(master))   //本地模式下，用来计算的驱动内核数目，否则为0
   }
 
   private[spark] def env: SparkEnv = _env
@@ -376,7 +391,9 @@ class SparkContext(config: SparkConf) extends Logging {
         s" ${SparkContext.VALID_LOG_LEVELS.mkString(",")}")
     Utils.setLogLevel(org.apache.log4j.Level.toLevel(upperCased))
   }
-
+/*
+    对SparkConf进行复制，对配置信息的校验
+ */
   try {
     _conf = config.clone()
     _conf.validateSettings()
@@ -387,6 +404,10 @@ class SparkContext(config: SparkConf) extends Logging {
     if (!_conf.contains("spark.app.name")) {
       throw new SparkException("An application name must be set in your configuration")
     }
+/*
+    上面的校验代码中，可以看到，必须指定 spark.master和 spark.app.name，否则会抛出异常，结束初始化。
+    spark.master用于设置部署模式，spark.app.name用于指定应用程序名称
+ */
 
     // System property spark.yarn.app.id must be set if user code ran by AM on a YARN cluster
     if (master == "yarn" && deployMode == "cluster" && !_conf.contains("spark.yarn.app.id")) {
@@ -504,6 +525,7 @@ class SparkContext(config: SparkConf) extends Logging {
       HeartbeatReceiver.ENDPOINT_NAME, new HeartbeatReceiver(this))
 
     // Create and start the scheduler
+    //创建并开启scheduler调度器
     val (sched, ts) = SparkContext.createTaskScheduler(this, master, deployMode)
     _schedulerBackend = sched
     _taskScheduler = ts
@@ -511,7 +533,9 @@ class SparkContext(config: SparkConf) extends Logging {
     _heartbeatReceiver.ask[Boolean](TaskSchedulerIsSet)
 
     // start TaskScheduler after taskScheduler sets DAGScheduler reference in DAGScheduler's
+    // 在taskScheduler设置好DAGScheduler的饮用后，开启TaskScheduler
     // constructor
+    // 构造器
     _taskScheduler.start()
 
     _applicationId = _taskScheduler.applicationId()
@@ -2482,6 +2506,7 @@ object SparkContext extends Logging {
 
   /**
    * The number of driver cores to use for execution in local mode, 0 otherwise.
+    *  本地模式下，用来计算的驱动内核数目，否则为0
    */
   private[spark] def numDriverCores(master: String): Int = {
     def convertToInt(threads: String): Int = {

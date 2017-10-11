@@ -41,6 +41,11 @@ import org.apache.spark.util.{RpcUtils, ThreadUtils}
  *
  * @param masterUrls Each url should look like spark://host:port.
  */
+/*
+    它是一个接口
+    它负责为application与spark集群进行通信
+    它会接收一个spark master的url，以及一个applicationDescription，和一个集群时间监听器，以及各种事件发生时，监听器的回调函数
+ */
 private[spark] class StandaloneAppClient(
     rpcEnv: RpcEnv,
     masterUrls: Array[String],

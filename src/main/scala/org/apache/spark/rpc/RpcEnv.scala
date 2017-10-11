@@ -30,6 +30,8 @@ import org.apache.spark.util.RpcUtils
 /**
  * A RpcEnv implementation must have a [[RpcEnvFactory]] implementation with an empty constructor
  * so that it can be created via Reflection.
+  *
+  * RpcEnv实现必须有一个RpcEnvFactory实现，其中有一个空的构造函数，以便通过反射创建它。
  */
 private[spark] object RpcEnv {
 
@@ -64,6 +66,11 @@ private[spark] object RpcEnv {
  * nodes, and deliver them to corresponding [[RpcEndpoint]]s. For uncaught exceptions caught by
  * [[RpcEnv]], [[RpcEnv]] will use [[RpcCallContext.sendFailure]] to send exceptions back to the
  * sender, or logging them if no such sender or `NotSerializableException`.
+  *
+  * RPC的环境，RpcEndpoint（RPC终端）需要向RpcEnv注册自己的名称，以接收消息
+  * 然后，RpcEnv将处理从RpcEndpointRef或远程节点发送的消息，并将它们发送到相应的RpcEndpoints
+  * 对于RpcEnv未捕获的异常，RpcEnv将使用RpcCallContext send失败者将异常发送回发送者
+  * 或者将它们标记为没有此类发送者或NotSerializableException。
  *
  * [[RpcEnv]] also provides some methods to retrieve [[RpcEndpointRef]]s given name or uri.
  */

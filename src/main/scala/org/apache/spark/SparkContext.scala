@@ -1937,6 +1937,9 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
    * Run a function on a given set of partitions in an RDD and pass the results to the given
    * handler function. This is the main entry point for all actions in Spark.
+    * 在RDD中对给定的一组分区运行一个函数，并将结果传递给给定的结果处理函数。
+    * 这是Spark中所有操作的主要入口点。
+    *
    */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],
@@ -1959,6 +1962,7 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
    * Run a function on a given set of partitions in an RDD and return the results as an array.
+    * 在RDD中的所有分区上运行一个job，返回结果数组。
    */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],
@@ -1972,6 +1976,7 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
    * Run a job on a given set of partitions of an RDD, but take a function of type
    * `Iterator[T] => U` instead of `(TaskContext, Iterator[T]) => U`.
+    * 在给定的一个RDD分区上运行job，但是要使用类型的函数Iterator[T] => U
    */
   def runJob[T, U: ClassTag](
       rdd: RDD[T],
@@ -1990,6 +1995,7 @@ class SparkContext(config: SparkConf) extends Logging {
 
   /**
    * Run a job on all partitions in an RDD and return the results in an array.
+    *  在RDD中的所有分区上运行一个job，返回结果数组。
    */
   def runJob[T, U: ClassTag](rdd: RDD[T], func: Iterator[T] => U): Array[U] = {
     runJob(rdd, func, 0 until rdd.partitions.length)

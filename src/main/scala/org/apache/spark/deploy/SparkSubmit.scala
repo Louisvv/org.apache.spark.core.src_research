@@ -116,15 +116,20 @@ object SparkSubmit {
   // scalastyle:on println
 
   def main(args: Array[String]): Unit = {
+    //  SparkSubmitArguments继承了SparkSubmitArgumentsParser，对提交参数进行解析
     val appArgs = new SparkSubmitArguments(args)
     if (appArgs.verbose) {
       // scalastyle:off println
       printStream.println(appArgs)
       // scalastyle:on println
     }
+    //  对传入参数的action进行模式匹配
     appArgs.action match {
+        //  如果是SUBMIT,则调用submit
       case SparkSubmitAction.SUBMIT => submit(appArgs)
+      //  如果是KILL,则调用kill
       case SparkSubmitAction.KILL => kill(appArgs)
+      //  如果是REQUEST_STATUS,则调用requestStatus
       case SparkSubmitAction.REQUEST_STATUS => requestStatus(appArgs)
     }
   }
@@ -155,8 +160,18 @@ object SparkSubmit {
    * Second, we use this launch environment to invoke the main method of the child
    * main class.
    */
+
+  /**
+    *   使用所提供的参数提交应用程序
+    *
+    *   需要两步：
+    *   1.首先，我们通过建立适当的classpath、系统属性和应用程序参数来准备启动环境，这些参数基于集群管理器和部署模式来运行子主类。
+    *   2.其次，我们使用这个发射环境来调用子主类的主要方法。
+    */
   @tailrec
   private def submit(args: SparkSubmitArguments): Unit = {
+
+    //  首先调用prepareSubmitEnvironment
     val (childArgs, childClasspath, sysProps, childMainClass) = prepareSubmitEnvironment(args)
 
     def doRunMain(): Unit = {
@@ -193,6 +208,13 @@ object SparkSubmit {
      //   (2) The new REST-based gateway introduced in Spark 1.3
      // The latter is the default behavior as of Spark 1.3, but Spark submit will fail over
      // to use the legacy gateway if the master endpoint turns out to be not a REST server.
+
+    /*  在standalone集群模式下，有两个提交网关：
+    *   1.使用o.a.s.deploy.Client作为包装器来使用传统的RPC网关
+    *   2.Spark 1.3中引入的基于rest的网关
+    *   第二种方法是Spark 1.3的默认行为，但是Spark submit将会失败
+    *   如果master不是一个REST服务器，那么它将无法使用REST网关。
+    */
     if (args.isStandaloneCluster && args.useRest) {
       try {
         // scalastyle:off println
@@ -207,7 +229,7 @@ object SparkSubmit {
           args.useRest = false
           submit(args)
       }
-    // In all other modes, just run the main class as prepared
+      // 在其他模式中，只需要调用doRunMain方法
     } else {
       doRunMain()
     }
@@ -222,6 +244,10 @@ object SparkSubmit {
    *   (4) the main class for the child
    * Exposed for testing.
    */
+
+  /**
+    *
+    */
   private[deploy] def prepareSubmitEnvironment(args: SparkSubmitArguments)
       : (Seq[String], Seq[String], Map[String, String], String) = {
     // Return values
@@ -231,6 +257,7 @@ object SparkSubmit {
     var childMainClass = ""
 
     // Set the cluster manager
+    //  根据参数的master，设置对应的资源管理器
     val clusterManager: Int = args.master match {
       case "yarn" => YARN
       case "yarn-client" | "yarn-cluster" =>
@@ -246,6 +273,7 @@ object SparkSubmit {
     }
 
     // Set the deploy mode; default is client mode
+    //  根据参数的deployMode，设置部署模式
     var deployMode: Int = args.deployMode match {
       case "client" | null => CLIENT
       case "cluster" => CLUSTER
@@ -522,14 +550,20 @@ object SparkSubmit {
 
     // In standalone cluster mode, use the REST client to submit the application (Spark 1.3+).
     // All Spark parameters are expected to be passed to the client through system properties.
+
+    //  在standalone cluster模式，使用Rest client提交application
+    //  Rest client提交，根据useRest进行判断，useRest为True为RestSubmissionClient方式提交application，否则为Client方式提交
     if (args.isStandaloneCluster) {
       if (args.useRest) {
         childMainClass = "org.apache.spark.deploy.rest.RestSubmissionClient"
         childArgs += (args.primaryResource, args.mainClass)
       } else {
         // In legacy standalone cluster mode, use Client as a wrapper around the user class
+        // 在传统的standalone集群模式中，使用Client作为用户类的包装器
         childMainClass = "org.apache.spark.deploy.Client"
+        //  如果参数中有设置supervise，则childArgs中添加supervise相关参数
         if (args.supervise) { childArgs += "--supervise" }
+        //  获取参数中对driverMemory，driverCores的配置参数，将其添加到childArgs中
         Option(args.driverMemory).foreach { m => childArgs += ("--memory", m) }
         Option(args.driverCores).foreach { c => childArgs += ("--cores", c) }
         childArgs += "launch"
@@ -676,6 +710,8 @@ object SparkSubmit {
     }
     // scalastyle:on println
 
+
+
     val loader =
       if (sysProps.getOrElse("spark.driver.userClassPathFirst", "false").toBoolean) {
         new ChildFirstURLClassLoader(new Array[URL](0),
@@ -686,6 +722,7 @@ object SparkSubmit {
       }
     Thread.currentThread.setContextClassLoader(loader)
 
+    //  使用ChildFirstURLClassLoader加载jar包
     for (jar <- childClasspath) {
       addJarToClasspath(jar, loader)
     }
@@ -724,6 +761,7 @@ object SparkSubmit {
       printWarning("Subclasses of scala.App may not work correctly. Use a main() method instead.")
     }
 
+    //  获取mainClass的main方法
     val mainMethod = mainClass.getMethod("main", new Array[String](0).getClass)
     if (!Modifier.isStatic(mainMethod.getModifiers)) {
       throw new IllegalStateException("The main method in the given main class must be static")
@@ -740,6 +778,7 @@ object SparkSubmit {
     }
 
     try {
+      //  将mainMethod参数化
       mainMethod.invoke(null, childArgs.toArray)
     } catch {
       case t: Throwable =>

@@ -61,10 +61,12 @@ private[spark] class StandaloneSchedulerBackend(
     launcherBackend.connect()
 
     // The endpoint for executors to talk to us
+
     val driverUrl = RpcEndpointAddress(
       sc.conf.get("spark.driver.host"),
       sc.conf.get("spark.driver.port").toInt,
       CoarseGrainedSchedulerBackend.ENDPOINT_NAME).toString
+    //  启动参数
     val args = Seq(
       "--driver-url", driverUrl,
       "--executor-id", "{{EXECUTOR_ID}}",
@@ -104,11 +106,15 @@ private[spark] class StandaloneSchedulerBackend(
       } else {
         None
       }
+    // 创建ApplicationDescription
     val appDesc = new ApplicationDescription(sc.appName, maxCores, sc.executorMemory, command,
       appUIAddress, sc.eventLogDir, sc.eventLogCodec, coresPerExecutor, initialExecutorLimit)
+    //  创建StandaloneAppClient，添加ApplicationDescription信息到client,用户application注册
     client = new StandaloneAppClient(sc.env.rpcEnv, masters, appDesc, this, conf)
+    //  创建AppClient，调用start方法，向master注册application
     client.start()
     launcherBackend.setState(SparkAppHandle.State.SUBMITTED)
+    //  等待注册状态更新
     waitForRegistration()
     launcherBackend.setState(SparkAppHandle.State.RUNNING)
   }

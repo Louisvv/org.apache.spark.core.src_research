@@ -37,6 +37,11 @@ import org.apache.spark.util.{SparkExitCode, ThreadUtils, Utils}
  * We currently don't support retry if submission fails. In HA mode, client will submit request to
  * all masters and see which one could handle it.
  */
+
+
+/**
+  *
+  */
 private class ClientEndpoint(
     override val rpcEnv: RpcEnv,
     driverArgs: ClientArguments,
@@ -61,6 +66,7 @@ private class ClientEndpoint(
    private var activeMasterEndpoint: RpcEndpointRef = null
 
   override def onStart(): Unit = {
+    //  根据driverArgs.cmd进行模式匹配
     driverArgs.cmd match {
       case "launch" =>
         // TODO: We could add an env variable here and intercept it in `sc.addJar` that would
@@ -83,10 +89,14 @@ private class ClientEndpoint(
           .map(Utils.splitCommandString).getOrElse(Seq.empty)
         val sparkJavaOpts = Utils.sparkJavaOpts(conf)
         val javaOpts = sparkJavaOpts ++ extraJavaOpts
+
+        //  将classPathEntries,libraryPathEntries,javaOpts,drvierArgs信息封装成Command
+        //  这里的mainClass为org.apache.spark.deploy.worker.DriverWrapper
         val command = new Command(mainClass,
           Seq("{{WORKER_URL}}", "{{USER_JAR}}", driverArgs.mainClass) ++ driverArgs.driverOptions,
           sys.env, classPathEntries, libraryPathEntries, javaOpts)
 
+        //  将drvierArgs，command信息封装成DriverDescription
         val driverDescription = new DriverDescription(
           driverArgs.jarUrl,
           driverArgs.memory,
@@ -94,6 +104,7 @@ private class ClientEndpoint(
           driverArgs.supervise,
           command)
         ayncSendToMasterAndForwardReply[SubmitDriverResponse](
+          //  向master发送RequestSubmitDriver,注册Driver
           RequestSubmitDriver(driverDescription))
 
       case "kill" =>
@@ -218,7 +229,9 @@ object Client {
     }
     // scalastyle:on println
 
+
     val conf = new SparkConf()
+    //  处理传入的参数
     val driverArgs = new ClientArguments(args)
 
     if (!conf.contains("spark.rpc.askTimeout")) {
@@ -226,11 +239,15 @@ object Client {
     }
     Logger.getRootLogger.setLevel(driverArgs.logLevel)
 
+    //  创建rpcEnv
     val rpcEnv =
       RpcEnv.create("driverClient", Utils.localHostName(), 0, conf, new SecurityManager(conf))
 
+    //  获取RpcEndpointRef，用于和Master进行通讯
     val masterEndpoints = driverArgs.masters.map(RpcAddress.fromSparkURL).
       map(rpcEnv.setupEndpointRef(_, Master.ENDPOINT_NAME))
+
+    //  注册RpcEndpoint，调用onStart方法
     rpcEnv.setupEndpoint("client", new ClientEndpoint(rpcEnv, driverArgs, masterEndpoints, conf))
 
     rpcEnv.awaitTermination()

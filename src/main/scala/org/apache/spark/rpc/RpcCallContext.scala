@@ -18,6 +18,10 @@
 package org.apache.spark.rpc
 
 /**
+  *   RpcEndpoint可以用来发送回消息或失败的回调。它是线程安全的在任何线程中都可以调用。
+  */
+
+/**
  * A callback that [[RpcEndpoint]] can use to send back a message or failure. It's thread-safe
  * and can be called in any thread.
  */

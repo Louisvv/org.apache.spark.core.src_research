@@ -73,13 +73,16 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging with Seria
     _reader
   }
 
+  //  加载默认配置
   if (loadDefaults) {
     loadFromSystemProperties(false)
   }
 
   private[spark] def loadFromSystemProperties(silent: Boolean): SparkConf = {
     // Load any spark.* system properties
+    //  加载所有键值对，获取前缀为spark的key和value
     for ((key, value) <- Utils.getSystemProperties if key.startsWith("spark.")) {
+      //  调用set方法
       set(key, value, silent)
     }
     this
@@ -91,15 +94,18 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging with Seria
   }
 
   private[spark] def set(key: String, value: String, silent: Boolean): SparkConf = {
+    //  如果key为空，抛出空指针异常
     if (key == null) {
       throw new NullPointerException("null key")
     }
+    //  如果value为空，抛出空指针异常
     if (value == null) {
       throw new NullPointerException("null value for " + key)
     }
     if (!silent) {
       logDeprecationWarning(key)
     }
+    //  添加到settings中
     settings.put(key, value)
     this
   }
@@ -454,6 +460,11 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging with Seria
    * Checks for illegal or deprecated config settings. Throws an exception for the former. Not
    * idempotent - may mutate this conf object to convert deprecated settings to supported ones.
    */
+
+  /**
+    *   检查是否有非法或者是启用的设置
+    *
+    */
   private[spark] def validateSettings() {
     if (contains("spark.local.dir")) {
       val msg = "In Spark 1.0 and later spark.local.dir will be overridden by the value set by " +

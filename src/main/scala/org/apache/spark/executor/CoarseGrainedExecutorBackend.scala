@@ -36,6 +36,10 @@ import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.{ThreadUtils, Utils}
 
+
+/**
+  *  worker中为application启动的executor，实际上是启动了这个CoarseGrainedExecutorBackend
+  */
 private[spark] class CoarseGrainedExecutorBackend(
     override val rpcEnv: RpcEnv,
     driverUrl: String,
@@ -54,11 +58,15 @@ private[spark] class CoarseGrainedExecutorBackend(
   // to be changed so that we don't share the serializer instance across threads
   private[this] val ser: SerializerInstance = env.closureSerializer.newInstance()
 
+  /**
+    *   初始化方法
+    */
   override def onStart() {
     logInfo("Connecting to driver: " + driverUrl)
     rpcEnv.asyncSetupEndpointRefByURI(driverUrl).flatMap { ref =>
       // This is a very fast action so we can use "ThreadUtils.sameThread"
       driver = Some(ref)
+      // 向Driver发送RegisterExecutor消息
       ref.ask[Boolean](RegisterExecutor(executorId, self, hostname, cores, extractLogUrls))
     }(ThreadUtils.sameThread).onComplete {
       // This is a very fast action so we can use "ThreadUtils.sameThread"
@@ -76,9 +84,12 @@ private[spark] class CoarseGrainedExecutorBackend(
   }
 
   override def receive: PartialFunction[Any, Unit] = {
+        //  注册成功后，会返回信息RegisteredExecutor，收到消息后，创建Executor
     case RegisteredExecutor =>
       logInfo("Successfully registered with driver")
       try {
+        //  创建Executor
+        //  由Executor实现大部分功能
         executor = new Executor(executorId, hostname, env, userClassPath, isLocal = false)
       } catch {
         case NonFatal(e) =>
@@ -88,12 +99,16 @@ private[spark] class CoarseGrainedExecutorBackend(
     case RegisterExecutorFailed(message) =>
       exitExecutor(1, "Slave registration failed: " + message)
 
+      // 启动Task
     case LaunchTask(data) =>
       if (executor == null) {
         exitExecutor(1, "Received LaunchTask command but executor was null")
       } else {
+        //  反序列化task
         val taskDesc = ser.deserialize[TaskDescription](data.value)
         logInfo("Got assigned task " + taskDesc.taskId)
+
+        //  执行executor的launchTask方法
         executor.launchTask(this, taskId = taskDesc.taskId, attemptNumber = taskDesc.attemptNumber,
           taskDesc.name, taskDesc.serializedTask)
       }

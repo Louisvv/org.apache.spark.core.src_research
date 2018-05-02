@@ -18,11 +18,11 @@
 package org.apache.spark.deploy
 
 private[deploy] case class DriverDescription(
-    jarUrl: String,
-    mem: Int,
-    cores: Int,
-    supervise: Boolean,
-    command: Command) {
-
+    jarUrl: String, // jar url地址
+    mem: Int, // 内存大小
+    cores: Int, // cpu core 数
+    supervise: Boolean, //是否监管
+    command: Command) //命令
+{
   override def toString: String = s"DriverDescription (${command.mainClass})"
 }

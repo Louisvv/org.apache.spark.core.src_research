@@ -77,6 +77,11 @@ private[spark] class StandaloneAppClient(
     // A thread pool for registering with masters. Because registering with a master is a blocking
     // action, this thread pool must be able to create "masterRpcAddresses.size" threads at the same
     // time so that we can register with all masters.
+    /*
+     创建一个向master注册的线程池
+     因为向master注册时是一个阻塞操作，这个线程池必须能够同时创建足够多的满足masterRpcAddresses的进程数
+     这样才可以向所有的master进行注册
+      */
     private val registerMasterThreadPool = ThreadUtils.newDaemonCachedThreadPool(
       "appclient-register-master-threadpool",
       masterRpcAddresses.length // Make sure we can register with all masters at the same time
@@ -100,6 +105,10 @@ private[spark] class StandaloneAppClient(
     /**
      *  Register with all masters asynchronously and returns an array `Future`s for cancellation.
      */
+
+    /**
+      *   异步的向master注册，返回一个[Future]数组用来以后取消
+      */
     private def tryRegisterAllMasters(): Array[JFuture[_]] = {
       for (masterAddress <- masterRpcAddresses) yield {
         registerMasterThreadPool.submit(new Runnable {
@@ -109,6 +118,7 @@ private[spark] class StandaloneAppClient(
             }
             logInfo("Connecting to master " + masterAddress.toSparkURL + "...")
             val masterRef = rpcEnv.setupEndpointRef(masterAddress, Master.ENDPOINT_NAME)
+            // 向master注册application
             masterRef.send(RegisterApplication(appDescription, self))
           } catch {
             case ie: InterruptedException => // Cancelled
@@ -125,7 +135,12 @@ private[spark] class StandaloneAppClient(
      *
      * nthRetry means this is the nth attempt to register with master.
      */
+
+    /**   向所有的master进行异步注册，将会一直调用registerWithMaster进行注册，直到超过注册时间
+      *   一旦成功连接到master，所有调度的工作和Futures都会被取消
+      */
     private def registerWithMaster(nthRetry: Int) {
+      // 实际上调用了tryRegisterAllMasters，向所有的master进行注册
       registerMasterFutures.set(tryRegisterAllMasters())
       registrationRetryTimer.set(registrationRetryThread.schedule(new Runnable {
         override def run(): Unit = {
@@ -164,9 +179,18 @@ private[spark] class StandaloneAppClient(
         // RegisteredApplications due to an unstable network.
         // 2. Receive multiple RegisteredApplication from different masters because the master is
         // changing.
+
+        /**
+          *   1.由于不稳定的网络原因，一个master接受到多个注册，并返回多个注册成功
+          *   2.由于master切换，从不同的master获取多个注册application信息
+          */
+        //设置app Id
         appId.set(appId_)
+        //  将registered状态修改为true
         registered.set(true)
+        //  设置master
         master = Some(masterRef)
+        //  通知listener状态改变为connected
         listener.connected(appId.get)
 
       case ApplicationRemoved(message) =>
@@ -274,6 +298,7 @@ private[spark] class StandaloneAppClient(
 
   def start() {
     // Just launch an rpcEndpoint; it will call back into the listener.
+    // 启动一个rpcEndpoint，将会返回给AppClientListener
     endpoint.set(rpcEnv.setupEndpoint("AppClient", new ClientEndpoint(rpcEnv)))
   }
 

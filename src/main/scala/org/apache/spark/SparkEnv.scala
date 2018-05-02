@@ -154,6 +154,10 @@ object SparkEnv extends Logging {
   /**
    * Create a SparkEnv for the driver.
    */
+
+  /**
+    * 创建Driver ENV
+    */
   private[spark] def createDriverEnv(
       conf: SparkConf,
       isLocal: Boolean,
@@ -163,9 +167,13 @@ object SparkEnv extends Logging {
     assert(conf.contains(DRIVER_HOST_ADDRESS),
       s"${DRIVER_HOST_ADDRESS.key} is not set on the driver!")
     assert(conf.contains("spark.driver.port"), "spark.driver.port is not set on the driver!")
+    //  从spark conf中获取Driver绑定地址
     val bindAddress = conf.get(DRIVER_BIND_ADDRESS)
+    //  从spark conf中获取Driver host地址
     val advertiseAddress = conf.get(DRIVER_HOST_ADDRESS)
+    //  从spark conf中获取Driver端口
     val port = conf.get("spark.driver.port").toInt
+    //  是否设置I/O加密的秘钥
     val ioEncryptionKey = if (conf.get(IO_ENCRYPTION_ENABLED)) {
       Some(CryptoStreamUtils.createKey(conf))
     } else {
@@ -214,6 +222,9 @@ object SparkEnv extends Logging {
   /**
    * Helper method to create a SparkEnv for a driver or an executor.
    */
+    /*
+    私有create方法，用于创建sparkEnv
+     */
   private def create(
       conf: SparkConf,
       executorId: String,
@@ -226,13 +237,20 @@ object SparkEnv extends Logging {
       listenerBus: LiveListenerBus = null,
       mockOutputCommitCoordinator: Option[OutputCommitCoordinator] = None): SparkEnv = {
 
+      //  判断是否为Driver，判断传入的executorId是否与Spark Context中的driver标识符相等
+      //  这里的executor id是作为driver的标识符，不是那个executor
     val isDriver = executorId == SparkContext.DRIVER_IDENTIFIER
 
+
     // Listener bus is only used on the driver
+
+      // 监听器总线仅用于Driver
     if (isDriver) {
       assert(listenerBus != null, "Attempted to create driver SparkEnv with null listener bus!")
     }
 
+    //  创建安全管理器securityManager
+    //  对账号、权限、身份进行设置和管理
     val securityManager = new SecurityManager(conf, ioEncryptionKey)
     ioEncryptionKey.foreach { _ =>
       if (!securityManager.isSaslEncryptionEnabled()) {
@@ -241,13 +259,22 @@ object SparkEnv extends Logging {
       }
     }
 
+      //  创建rpcEnv，用于消息发送，远程同步
+      //  首先生成systemName系统名
+      //  然后判断是否为drvier,如果是drvier，则sparkEnv位于driver中，系统名为driverSystemName
+      //  如果不是sparkEnv位于executor中，系统名为executorSystemName
+
     val systemName = if (isDriver) driverSystemName else executorSystemName
+
+      //  创建sparkEnv
     val rpcEnv = RpcEnv.create(systemName, bindAddress, advertiseAddress, port, conf,
       securityManager, clientMode = !isDriver)
 
     // Figure out which port RpcEnv actually bound to in case the original port is 0 or occupied.
     // In the non-driver case, the RPC env's address may be null since it may not be listening
     // for incoming connections.
+
+      //
     if (isDriver) {
       conf.set("spark.driver.port", rpcEnv.address.port.toString)
     } else if (rpcEnv.address != null) {
@@ -256,6 +283,8 @@ object SparkEnv extends Logging {
     }
 
     // Create an instance of the class with the given name, possibly initializing it with our conf
+
+      // 用给定的名称创建一个类的实例，可能用我们的conf初始化它
     def instantiateClass[T](className: String): T = {
       val cls = Utils.classForName(className)
       // Look for a constructor taking a SparkConf and a boolean isDriver, then one taking just
@@ -399,6 +428,9 @@ object SparkEnv extends Logging {
 
     envInstance
   }
+
+
+
 
   /**
    * Return a map representation of jvm information, Spark properties, system properties, and

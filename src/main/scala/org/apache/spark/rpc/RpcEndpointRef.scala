@@ -27,6 +27,10 @@ import org.apache.spark.util.RpcUtils
 /**
  * A reference for a remote [[RpcEndpoint]]. [[RpcEndpointRef]] is thread-safe.
  */
+
+/**
+  *   一个远程RpcEndpoint的引用，RpcEndpointRef是线程安全的
+  */
 private[spark] abstract class RpcEndpointRef(conf: SparkConf)
   extends Serializable with Logging {
 
@@ -44,6 +48,9 @@ private[spark] abstract class RpcEndpointRef(conf: SparkConf)
   /**
    * Sends a one-way asynchronous message. Fire-and-forget semantics.
    */
+  /*
+    发送单向异步消息，发送后就不管语义
+   */
   def send(message: Any): Unit
 
   /**
@@ -52,6 +59,12 @@ private[spark] abstract class RpcEndpointRef(conf: SparkConf)
    *
    * This method only sends the message once and never retries.
    */
+
+  /**
+    *   发送消息到相应的RpcEndpoint.receiveAndReply
+    *   返回一个Future，在指定的超时时间内接收应答
+    *   这个方法只发送一次消息，并且不重复
+    */
   def ask[T: ClassTag](message: Any, timeout: RpcTimeout): Future[T]
 
   /**
@@ -60,7 +73,14 @@ private[spark] abstract class RpcEndpointRef(conf: SparkConf)
    *
    * This method only sends the message once and never retries.
    */
+
+  /**
+    *   发送消息到相应的RpcEndpoint.receiveAndReply
+    *   返回一个Future，在指定的超时时间内接收应答
+    *   这个方法只发送一次消息，并且不重复
+    */
   def ask[T: ClassTag](message: Any): Future[T] = ask(message, defaultAskTimeout)
+
 
   /**
    * Send a message to the corresponding [[RpcEndpoint]] and get its result within a default
@@ -75,6 +95,12 @@ private[spark] abstract class RpcEndpointRef(conf: SparkConf)
    * @tparam T type of the reply message
    * @return the reply message from the corresponding [[RpcEndpoint]]
    */
+
+
+  /**
+    *   发送消息给对应的RpcEndpoint.receive，并且在一个指定超时时间内获取它的结果
+    *
+    */
   def askWithRetry[T: ClassTag](message: Any): T = askWithRetry(message, defaultAskTimeout)
 
   /**

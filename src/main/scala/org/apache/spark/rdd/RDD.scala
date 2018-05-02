@@ -788,6 +788,11 @@ abstract class RDD[T: ClassTag](
    * `preservesPartitioning` indicates whether the input function preserves the partitioner, which
    * should be `false` unless this is a pair RDD and the input function doesn't modify the keys.
    */
+
+  /**
+    *   通过对这个RDD的每个分区应用一个函数来返回一个新的RDD
+    *
+    */
   def mapPartitions[U: ClassTag](
       f: Iterator[T] => Iterator[U],
       preservesPartitioning: Boolean = false): RDD[U] = withScope {

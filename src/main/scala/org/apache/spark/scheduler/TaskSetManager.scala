@@ -47,6 +47,13 @@ import org.apache.spark.util.{AccumulatorV2, Clock, SystemClock, Utils}
  * @param maxTaskFailures if any particular task fails this number of times, the entire
  *                        task set will be aborted
  */
+
+/**   在TaskSchedulerImpl中对一个单独的TaskSet集合进行调度
+  *   这个类跟踪每一个task任务，如果task任务失败，重试task任务（直到最多重试次数）
+  *   并且通过延迟调度来处理这个TaskSet的本地感知调度(本地化调度机制)
+  *   他的主要接口是resourceOffer，用来询问TaskSet是否想在一个节点上允许一个Task任务
+  *   以及statusUpdate接口，用来告诉它的Task任务状态的改变(比如：已完成)
+  */
 private[spark] class TaskSetManager(
     sched: TaskSchedulerImpl,
     val taskSet: TaskSet,

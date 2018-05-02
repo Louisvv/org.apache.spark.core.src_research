@@ -154,9 +154,15 @@ private[spark] class Executor(
       attemptNumber: Int,
       taskName: String,
       serializedTask: ByteBuffer): Unit = {
+    //  对于每一个task都会创建一个TaskRunner
+    //  TaskRunner继承自Runneralbe
+    //  TaskRunner的run会执行task
     val tr = new TaskRunner(context, taskId = taskId, attemptNumber = attemptNumber, taskName,
       serializedTask)
+    //  将task封装在一个线程中（TaskRunner）
+    //  最终TaskRunner被放到一个threadPool中去执行（将线程放到线程池中执行）
     runningTasks.put(taskId, tr)
+    //  线程池中是自动排序的，线程需要等待有序的执行
     threadPool.execute(tr)
   }
 

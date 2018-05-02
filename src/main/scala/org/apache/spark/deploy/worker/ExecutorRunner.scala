@@ -36,6 +36,11 @@ import org.apache.spark.util.logging.FileAppender
  * Manages the execution of one executor process.
  * This is currently only used in standalone mode.
  */
+
+/**
+  *   管理一个executor进程的执行
+  *   目前只在standalone下使用
+  */
 private[deploy] class ExecutorRunner(
     val appId: String,
     val execId: Int,
@@ -69,7 +74,9 @@ private[deploy] class ExecutorRunner(
   private var shutdownHook: AnyRef = null
 
   private[worker] def start() {
+    //创建线程
     workerThread = new Thread("ExecutorRunner for " + fullId) {
+      // 调用fetchAndRunExecutor方法
       override def run() { fetchAndRunExecutor() }
     }
     workerThread.start()
@@ -139,16 +146,21 @@ private[deploy] class ExecutorRunner(
   /**
    * Download and run the executor described in our ApplicationDescription
    */
+
   private def fetchAndRunExecutor() {
     try {
       // Launch the process
+      //  创建ProcessBuilder，执行Linux启动命令
+      //  substituteVariables
       val builder = CommandUtils.buildProcessBuilder(appDesc.command, new SecurityManager(conf),
         memory, sparkHome.getAbsolutePath, substituteVariables)
       val command = builder.command()
       val formattedCommand = command.asScala.mkString("\"", "\" \"", "\"")
       logInfo(s"Launch command: $formattedCommand")
 
+      //  为ProcessBuilder创建执行目录，该目录为executorDir目录，即worker创建的executor工作目录
       builder.directory(executorDir)
+      //  为ProcessBuilder设置环境变量
       builder.environment.put("SPARK_EXECUTOR_DIRS", appLocalDirs.mkString(File.pathSeparator))
       // In case we are running this from within the Spark Shell, avoid creating a "scala"
       // parent process for the executor command
@@ -164,23 +176,29 @@ private[deploy] class ExecutorRunner(
       builder.environment.put("SPARK_LOG_URL_STDERR", s"${baseUrl}stderr")
       builder.environment.put("SPARK_LOG_URL_STDOUT", s"${baseUrl}stdout")
 
+      //  启动ProcessBuilder，生成进程
       process = builder.start()
       val header = "Spark Executor Command: %s\n%s\n\n".format(
         formattedCommand, "=" * 40)
 
       // Redirect its stdout and stderr to files
+      //  重定向进程输出流文件
       val stdout = new File(executorDir, "stdout")
       stdoutAppender = FileAppender(process.getInputStream, stdout, conf)
 
+      //  重定向进程输入流文件
       val stderr = new File(executorDir, "stderr")
       Files.write(header, stderr, StandardCharsets.UTF_8)
       stderrAppender = FileAppender(process.getErrorStream, stderr, conf)
 
       // Wait for it to exit; executor may exit with code 0 (when driver instructs it to shutdown)
       // or with nonzero exit code
+      //  等待获取executor进程的退出状态码
       val exitCode = process.waitFor()
+      //  如果executor的状态为退出
       state = ExecutorState.EXITED
       val message = "Command exited with code " + exitCode
+      //  向worker发送executor状态改变
       worker.send(ExecutorStateChanged(appId, execId, state, Some(message), Some(exitCode)))
     } catch {
       case interrupted: InterruptedException =>

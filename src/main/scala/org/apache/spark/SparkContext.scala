@@ -87,6 +87,8 @@ class SparkContext(config: SparkConf) extends Logging {
 
   // If true, log warnings instead of throwing exceptions when multiple SparkContexts are active
   // 如果设置为true，在多个SparkContext激活时，记录警告，而不是抛出异常
+
+
   /*
   SparkContext默认只有一个实例，由spark.driver.allowMultipleContexts来控制，默认为false，#如果用户需要多个SparkContext实例时，可修改为true
    */
@@ -275,7 +277,8 @@ class SparkContext(config: SparkConf) extends Logging {
       conf: SparkConf,   //conf是对SparkConf的复制
       isLocal: Boolean,   //isLocal标识判断是否单机
       listenerBus: LiveListenerBus): SparkEnv = {
-    SparkEnv.createDriverEnv(conf, isLocal, listenerBus, SparkContext.numDriverCores(master))   //本地模式下，用来计算的驱动内核数目，否则为0
+    //  其实是调用createDriverEnv创建SparkEnv
+    SparkEnv.createDriverEnv(conf, isLocal, listenerBus, SparkContext.numDriverCores(master))
   }
 
   private[spark] def env: SparkEnv = _env
@@ -404,12 +407,20 @@ class SparkContext(config: SparkConf) extends Logging {
     if (!_conf.contains("spark.app.name")) {
       throw new SparkException("An application name must be set in your configuration")
     }
+
 /*
     上面的校验代码中，可以看到，必须指定 spark.master和 spark.app.name，否则会抛出异常，结束初始化。
     spark.master用于设置部署模式，spark.app.name用于指定应用程序名称
  */
 
     // System property spark.yarn.app.id must be set if user code ran by AM on a YARN cluster
+
+    /**
+      *   如果指定master为yarn模式或者部署模式为cluster，或者conf包含spark.yarn.app.id
+      *    抛出异常
+      *    请使用spark-submit方式提交
+      */
+
     if (master == "yarn" && deployMode == "cluster" && !_conf.contains("spark.yarn.app.id")) {
       throw new SparkException("Detected yarn cluster mode, but isn't running on a cluster. " +
         "Deployment to YARN is not supported directly by SparkContext. Please use spark-submit.")
@@ -421,11 +432,15 @@ class SparkContext(config: SparkConf) extends Logging {
 
     // Set Spark driver host and port system properties. This explicitly sets the configuration
     // instead of relying on the default value of the config constant.
+
+    //  设置driver host地址和端口
     _conf.set(DRIVER_HOST_ADDRESS, _conf.get(DRIVER_HOST_ADDRESS))
     _conf.setIfMissing("spark.driver.port", "0")
 
+    //  设置executor id
     _conf.set("spark.executor.id", SparkContext.DRIVER_IDENTIFIER)
 
+    //  获取用户jar包
     _jars = Utils.getUserJars(_conf)
     _files = _conf.getOption("spark.files").map(_.split(",")).map(_.filter(_.nonEmpty))
       .toSeq.flatten
@@ -448,14 +463,23 @@ class SparkContext(config: SparkConf) extends Logging {
       }
     }
 
+    //  如果master为yarn 且部署模式                                                                                                                                                                                                                                                                                                                                                                                        为 client,设置系统配置 yarn模式开启
     if (master == "yarn" && deployMode == "client") System.setProperty("SPARK_YARN_MODE", "true")
 
     // "_jobProgressListener" should be set up before creating SparkEnv because when creating
     // "SparkEnv", some messages will be posted to "listenerBus" and we should not miss them.
+
+    /**
+      *   jobProgressListener应该在创建SparkEnv之前设置，因为在创建SparkEnv时
+      *   一些信息将被发布到“listenerBus”，我们不应该错过它们
+      */
     _jobProgressListener = new JobProgressListener(_conf)
     listenerBus.addListener(jobProgressListener)
 
-    // Create the Spark execution environment (cache, map output tracker, etc)
+    // Create the Spark execution environment (cache, map output tracker, etc)、
+
+
+    //  创建Spark Env
     _env = createSparkEnv(_conf, isLocal, listenerBus)
     SparkEnv.set(_env)
 
@@ -484,8 +508,11 @@ class SparkContext(config: SparkConf) extends Logging {
       }
     // Bind the UI before starting the task scheduler to communicate
     // the bound port to the cluster manager properly
+    //  在启动ask scheduler之前绑定UI
+    //  正确地连接到集群管理器
     _ui.foreach(_.bind())
 
+    //  获取hadoop配置信息
     _hadoopConfiguration = SparkHadoopUtil.get.newConfiguration(_conf)
 
     // Add each JAR given through the constructor
@@ -497,6 +524,7 @@ class SparkContext(config: SparkConf) extends Logging {
       files.foreach(addFile)
     }
 
+    //  获取executor 内存env变量
     _executorMemory = _conf.getOption("spark.executor.memory")
       .orElse(Option(System.getenv("SPARK_EXECUTOR_MEMORY")))
       .orElse(Option(System.getenv("SPARK_MEM"))
@@ -521,11 +549,13 @@ class SparkContext(config: SparkConf) extends Logging {
 
     // We need to register "HeartbeatReceiver" before "createTaskScheduler" because Executor will
     // retrieve "HeartbeatReceiver" in the constructor. (SPARK-6640)
+
+    //  创建心跳接收器
     _heartbeatReceiver = env.rpcEnv.setupEndpoint(
       HeartbeatReceiver.ENDPOINT_NAME, new HeartbeatReceiver(this))
 
     // Create and start the scheduler
-    //创建并开启scheduler调度器
+    //创建TaskScheduler调度器
     val (sched, ts) = SparkContext.createTaskScheduler(this, master, deployMode)
     _schedulerBackend = sched
     _taskScheduler = ts
@@ -545,10 +575,12 @@ class SparkContext(config: SparkConf) extends Logging {
       System.setProperty("spark.ui.proxyBase", "/proxy/" + _applicationId)
     }
     _ui.foreach(_.setAppId(_applicationId))
+    //  blockManager进行初始化
     _env.blockManager.initialize(_applicationId)
 
     // The metrics system for Driver need to be set spark.app.id to app ID.
     // So it should start after we get app ID from the task scheduler and set spark.app.id.
+    // 启动metricsSystem测量系统
     _env.metricsSystem.start()
     // Attach the driver metrics servlet handler to the web ui after the metrics system is started.
     _env.metricsSystem.getServletHandlers.foreach(handler => ui.foreach(_.attachHandler(handler)))
@@ -566,6 +598,7 @@ class SparkContext(config: SparkConf) extends Logging {
       }
 
     // Optionally scale number of executors dynamically based on workload. Exposed for testing.
+    // 创建和启动Executor分配管理器 ExecutorAllocationManager
     val dynamicAllocationEnabled = Utils.isDynamicAllocationEnabled(_conf)
     _executorAllocationManager =
       if (dynamicAllocationEnabled) {
@@ -581,6 +614,7 @@ class SparkContext(config: SparkConf) extends Logging {
       }
     _executorAllocationManager.foreach(_.start())
 
+    // ContextCleaner 的创建与启动
     _cleaner =
       if (_conf.getBoolean("spark.cleaner.referenceTracking", true)) {
         Some(new ContextCleaner(this))
@@ -589,13 +623,16 @@ class SparkContext(config: SparkConf) extends Logging {
       }
     _cleaner.foreach(_.start())
 
+    //  spark 环境更新
     setupAndStartListenerBus()
     postEnvironmentUpdate()
     postApplicationStart()
 
     // Post init
     _taskScheduler.postStartHook()
+    //  创建DAGSchedulerSource
     _env.metricsSystem.registerSource(_dagScheduler.metricsSource)
+    //  创建BlockManagerSource
     _env.metricsSystem.registerSource(new BlockManagerSource(_env.blockManager))
     _executorAllocationManager.foreach { e =>
       _env.metricsSystem.registerSource(e.executorAllocationManagerSource)
@@ -2441,6 +2478,10 @@ object SparkContext extends Logging {
    * changed to `driver` because the angle brackets caused escaping issues in URLs and XML (see
    * SPARK-6716 for more details).
    */
+
+  /**
+    * 驱动程序的执行id。在早期版本的Spark中，是这么写的：<driver>，但被改为 driver，因为尖括号导致了url和XML中的转义问题
+    */
   private[spark] val DRIVER_IDENTIFIER = "driver"
 
   /**
@@ -2567,6 +2608,7 @@ object SparkContext extends Logging {
         val backend = new LocalSchedulerBackend(sc.getConf, scheduler, threadCount)
         scheduler.initialize(backend)
         (backend, scheduler)
+
 
       case SPARK_REGEX(sparkUrl) =>
         val scheduler = new TaskSchedulerImpl(sc)

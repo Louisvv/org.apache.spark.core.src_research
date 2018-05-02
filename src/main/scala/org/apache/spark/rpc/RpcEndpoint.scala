@@ -23,6 +23,10 @@ import org.apache.spark.SparkException
  * A factory class to create the [[RpcEnv]]. It must have an empty constructor so that it can be
  * created using Reflection.
  */
+
+/**
+  *   创建RpcEnv的工厂类，它必须有一个空的构造函数，以便可以使用反射创建它
+  */
 private[spark] trait RpcEnvFactory {
 
   def create(config: RpcEnvConfig): RpcEnv
@@ -43,11 +47,23 @@ private[spark] trait RpcEnvFactory {
  * If any error is thrown from one of [[RpcEndpoint]] methods except `onError`, `onError` will be
  * invoked with the cause. If `onError` throws an error, [[RpcEnv]] will ignore it.
  */
+
+/**
+  *   一个RPC终端，它定义了给定消息时要触发的函数
+  *   保证onStart、receive、onStop将按顺序被调用
+  *   一个endpoint终端的生命周期为:
+  *   constructor  构造函数 -> onStart -> receive* -> onStop
+  */
+
 private[spark] trait RpcEndpoint {
 
   /**
    * The [[RpcEnv]] that this [[RpcEndpoint]] is registered to.
    */
+
+  /**
+    *   RpcEndpoint需要向RpcEnv进行注册
+    */
   val rpcEnv: RpcEnv
 
   /**
@@ -57,6 +73,15 @@ private[spark] trait RpcEndpoint {
    * Note: Because before `onStart`, [[RpcEndpoint]] has not yet been registered and there is not
    * valid [[RpcEndpointRef]] for it. So don't call `self` before `onStart` is called.
    */
+
+  /**
+    *   这是这个RpcEndpoint的RpcEndpointRef
+    *   当调用onStart时，self将变得有效
+    *   当调用onStop时，self将变为空
+    *
+    *   注意：在调用onStart之前，RpcEndpoint并没有完成注册，所以RpcEndpointRef不可用
+    *   所以，不要在调用onStart之前调用self
+    */
   final def self: RpcEndpointRef = {
     require(rpcEnv != null, "rpcEnv has not been initialized")
     rpcEnv.endpointRef(this)
@@ -66,6 +91,11 @@ private[spark] trait RpcEndpoint {
    * Process messages from [[RpcEndpointRef.send]] or [[RpcCallContext.reply)]]. If receiving a
    * unmatched message, [[SparkException]] will be thrown and sent to `onError`.
    */
+
+  /**
+    *   处理从RpcEndpointRef.send或者RpcCallContext.reply发来的消息
+    *   如果接受到了不匹配的消息，SparkException将会把它发送给onError
+    */
   def receive: PartialFunction[Any, Unit] = {
     case _ => throw new SparkException(self + " does not implement 'receive'")
   }
@@ -74,6 +104,11 @@ private[spark] trait RpcEndpoint {
    * Process messages from [[RpcEndpointRef.ask]]. If receiving a unmatched message,
    * [[SparkException]] will be thrown and sent to `onError`.
    */
+
+  /**
+    *   处理从RpcEndpointRef.ask发送来的消息
+    *   如果接受到了不匹配的消息，SparkException将会把它发送给onError
+    */
   def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
     case _ => context.sendFailure(new SparkException(self + " won't reply anything"))
   }
@@ -81,6 +116,10 @@ private[spark] trait RpcEndpoint {
   /**
    * Invoked when any exception is thrown during handling messages.
    */
+
+  /**
+    *   在消息处理时，抛出异常时使用
+    */
   def onError(cause: Throwable): Unit = {
     // By default, throw e and let RpcEnv handle it
     throw cause

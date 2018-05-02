@@ -60,6 +60,12 @@ private[spark] object ThreadUtils {
    * Create a cached thread pool whose max number of threads is `maxThreadNumber`. Thread names
    * are formatted as prefix-ID, where ID is a unique, sequentially assigned integer.
    */
+
+  /**
+    *   创建一个缓存的线程池，它的最大线程数为设置好的maxThreadNumber(最大线程数)
+    *   线程名被格式化为prefix-ID，ID是唯一的、顺序分配的整数
+    *
+    */
   def newDaemonCachedThreadPool(
       prefix: String, maxThreadNumber: Int, keepAliveSeconds: Int = 60): ThreadPoolExecutor = {
     val threadFactory = namedThreadFactory(prefix)

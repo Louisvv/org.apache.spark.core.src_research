@@ -215,10 +215,15 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     // Make fake resource offers on all executors
     private def makeOffers() {
       // Filter out executors under killing
+      //  筛选掉死去的executors
       val activeExecutors = executorDataMap.filterKeys(executorIsAlive)
+     // 将这个application所有可用的executor，将其封装成了workOffers，每个workOffers代表了每个executor可用的cpu资源数量
       val workOffers = activeExecutors.map { case (id, executorData) =>
         new WorkerOffer(id, executorData.executorHost, executorData.freeCores)
       }.toIndexedSeq
+      /*
+      分配好task到executor后，执行launchTasks方法，调用scheduler.resourceOffers的方法
+       */
       launchTasks(scheduler.resourceOffers(workOffers))
     }
 
@@ -247,8 +252,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     // Launch tasks returned by a set of resource offers
+    // 根据分配好的情况，去executor上启动相应的task
     private def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
       for (task <- tasks.flatten) {
+        // 将每个executor要执行的task信息序列化
         val serializedTask = ser.serialize(task)
         if (serializedTask.limit >= maxRpcMessageSize) {
           scheduler.taskIdToTaskSetManager.get(task.taskId).foreach { taskSetMgr =>
@@ -264,12 +271,14 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           }
         }
         else {
+          //  找到对应的executor
           val executorData = executorDataMap(task.executorId)
+          //  将当前executor空闲cpu资源数减去将要使用的cpu数
           executorData.freeCores -= scheduler.CPUS_PER_TASK
 
           logDebug(s"Launching task ${task.taskId} on executor id: ${task.executorId} hostname: " +
             s"${executorData.executorHost}.")
-
+          //    向executor发送LaunchTask消息，在executor上启动task
           executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
         }
       }

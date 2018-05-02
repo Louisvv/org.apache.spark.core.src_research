@@ -432,16 +432,20 @@ private[netty] object NettyRpcEnv extends Logging {
 
 private[rpc] class NettyRpcEnvFactory extends RpcEnvFactory with Logging {
 
+  //  创建RpcEnv
   def create(config: RpcEnvConfig): RpcEnv = {
     val sparkConf = config.conf
     // Use JavaSerializerInstance in multiple threads is safe. However, if we plan to support
     // KryoSerializer in future, we have to use ThreadLocal to store SerializerInstance
+    //   创建javaSerializerInstance，此实例用于RPC传输对象的序列化
     val javaSerializerInstance =
       new JavaSerializer(sparkConf).newInstance().asInstanceOf[JavaSerializerInstance]
+    //  创建 NettyRpcEnv
     val nettyEnv =
       new NettyRpcEnv(sparkConf, javaSerializerInstance, config.advertiseAddress,
         config.securityManager)
     if (!config.clientMode) {
+      //  启动NettyRpcEnv
       val startNettyRpcEnv: Int => (NettyRpcEnv, Int) = { actualPort =>
         nettyEnv.startServer(config.bindAddress, actualPort)
         (nettyEnv, nettyEnv.address.port)
